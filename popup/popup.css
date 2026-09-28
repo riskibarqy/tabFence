@@ -1,0 +1,14 @@
+:root {
+  color: #1e271f;
+  background: #eef1e7;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+body { margin: 0; min-width: 280px; }
+main { padding: 22px; }
+h1 { margin: 0; font-size: 32px; letter-spacing: -1px; }
+.eyebrow { color: #64705d; font: 700 10px/1.2 monospace; letter-spacing: 1px; margin: 0 0 8px; }
+.count { border-bottom: 1px solid #c6cec1; margin: 10px 0 12px; padding-bottom: 12px; }
+.row { align-items: center; display: flex; font-size: 15px; justify-content: space-between; padding: 9px 0; }
+input { accent-color: #26663d; width: 18px; height: 18px; }
+.notice { color: #7b3522; font-size: 13px; margin: 12px 0 0; }

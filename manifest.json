@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "TabFence",
+  "version": "0.1.0",
+  "description": "Keep website popup requests in check.",
+  "permissions": ["storage", "tabs", "scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "src/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "TabFence"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "ISOLATED"
+    }
+  ]
+}
