@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node tests/policy.test.mjs",
+    "test": "node tests/policy.test.mjs && node tests/registration.test.mjs && node tests/notice.test.mjs && node tests/navigation.test.mjs",
     "check": "node --check src/policy.js && node --check src/guard.js && node --check src/bridge.js && node --check src/service-worker.js && node --check popup/popup.js"
   }
 }

@@ -7,16 +7,20 @@ const context = {};
 context.globalThis = context;
 vm.runInNewContext(source, context);
 
-const { isBlankAnchor, shouldBlockBlankAnchor } = context.TabFencePolicy;
-const blank = { target: "_blank", href: "https://example.com" };
+const { isNewContextTarget, shouldBlockNewContext } = context.TabFencePolicy;
 const leftClick = { isTrusted: true, button: 0, defaultPrevented: false };
 
-assert.equal(isBlankAnchor(blank), true);
-assert.equal(shouldBlockBlankAnchor(leftClick, blank), true);
-assert.equal(shouldBlockBlankAnchor({ ...leftClick, ctrlKey: true }, blank), false);
-assert.equal(shouldBlockBlankAnchor({ ...leftClick, metaKey: true }, blank), false);
-assert.equal(shouldBlockBlankAnchor({ ...leftClick, button: 1 }, blank), false);
-assert.equal(shouldBlockBlankAnchor({ ...leftClick, isTrusted: false }, blank), true);
-assert.equal(shouldBlockBlankAnchor(leftClick, { target: "", href: "https://example.com" }), false);
+assert.equal(isNewContextTarget("_blank"), true);
+assert.equal(isNewContextTarget("ad-window"), true);
+assert.equal(isNewContextTarget("_self"), false);
+assert.equal(isNewContextTarget("_parent"), false);
+assert.equal(shouldBlockNewContext(leftClick, "_blank"), true);
+assert.equal(shouldBlockNewContext(leftClick, "ad-window"), true);
+assert.equal(shouldBlockNewContext({ ...leftClick, ctrlKey: true }, "_blank"), false);
+assert.equal(shouldBlockNewContext({ ...leftClick, metaKey: true }, "_blank"), false);
+assert.equal(shouldBlockNewContext({ ...leftClick, button: 1 }, "_blank"), false);
+assert.equal(shouldBlockNewContext({ ...leftClick, isTrusted: false }, "_blank"), true);
+assert.equal(shouldBlockNewContext({ isTrusted: true, type: "touchstart" }, "_blank"), true);
+assert.equal(shouldBlockNewContext(leftClick, "_self"), false);
 
 console.log("policy tests passed");

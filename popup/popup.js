@@ -4,11 +4,12 @@
   const SETTINGS_KEY = "settings";
   const enabledInput = document.querySelector("#enabled");
   const siteInput = document.querySelector("#site");
+  const noticeInput = document.querySelector("#show-notice");
   const siteLabel = document.querySelector("#site-label");
   const count = document.querySelector("#count");
   const notice = document.querySelector("#notice");
   let host = "";
-  let settings = { enabled: true, allowedHosts: [] };
+  let settings = { enabled: true, allowedHosts: [], showNotifications: true };
 
   function save() {
     return chrome.storage.local.set({ [SETTINGS_KEY]: settings });
@@ -26,6 +27,7 @@
     ]);
     settings = { ...settings, ...(stored[SETTINGS_KEY] || {}) };
     enabledInput.checked = settings.enabled;
+    noticeInput.checked = settings.showNotifications;
 
     try {
       host = new URL(tab[0]?.url || "").hostname.toLowerCase();
@@ -63,6 +65,16 @@
     try {
       await save();
       showNotice("Reload this tab to apply the change.");
+    } catch {
+      showNotice("Could not save TabFence settings.");
+    }
+  });
+
+  noticeInput.addEventListener("change", async () => {
+    settings.showNotifications = noticeInput.checked;
+    try {
+      await save();
+      showNotice("Block notice updated.");
     } catch {
       showNotice("Could not save TabFence settings.");
     }

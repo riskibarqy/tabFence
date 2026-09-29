@@ -19,16 +19,16 @@ TabFence is a navigation-control extension, not an ad blocker. It does not class
 - Any script-generated `window.open()` is blocked, even during a real click; legitimate sites can be allowlisted.
 - Ctrl/Cmd-click, middle-click, the link context menu, browser New Tab, and Ctrl/Cmd+T behave normally.
 - Users can disable protection or allow a site that needs popup-based flows (for example, OAuth or payments).
-- Users can see how many attempts were blocked on the current page without notification spam.
+- Users can see blocked attempts in the current-page count and an optional brief notice.
 
 ## MVP policy
 
 | Initiator | Default result |
 |---|---|
-| Browser UI, shortcut, or context-menu new tab | Allow |
-| Trusted Ctrl/Cmd-click or middle-click on a link | Allow requested new tab |
+| Browser New Tab UI or Ctrl/Cmd+T | Allow |
+| Trusted Ctrl/Cmd-click, middle-click, or context-menu Open Link on a link | Allow requested new tab/window |
 | Normal left-click on a direct `<a href>` link without `target="_blank"` | Browser same-tab navigation |
-| Normal left-click on a `target="_blank"` link, including an overlay ancestor | Block; do not navigate or create a tab/window |
+| Normal left-click on a link, form, or form control targeting a new/named browsing context | Block; do not navigate or create a tab/window |
 | Any script-generated `window.open()`, even during a real click or after a timeout | Block; do not navigate or create a tab/window |
 | Synthetic `.click()` or dispatched event requests a new tab | Block; do not navigate or create a tab/window |
 | Allowed hostname or protection off | Do not interfere |
@@ -39,14 +39,14 @@ A normal left-click must never create a new tab/window unless the user explicitl
 
 - Block `window.open()` on eligible top-level pages, including click-triggered calls; validate iframe and pop-under coverage in browsers before claiming it.
 - Preserve explicit user-initiated browser navigation.
-- Block ordinary left-clicks on `target="_blank"` links, including transparent overlay links; never redirect their URLs or a `window.open()` destination.
+- Block ordinary left-clicks on links, forms, and form controls that target a new/named browsing context, including transparent overlay links; never redirect their URLs or a `window.open()` destination.
 - Provide a global protection toggle and an exact-hostname allowlist.
 - Show a per-page blocked-attempt count on the extension icon and in a minimal popup.
 - Ship one extension package for Chrome, Brave, and Edge.
 - Keep all settings and counters local; collect no browsing history, analytics, or page content.
 - Keep idle overhead low: no ad-filter lists, continuous scans, polling, or persistent background work; process relevant navigation events only.
 
-Popup: product name, protection toggle, blocked count, current-site allow toggle, and settings entry if needed for allowlist management. Changes apply to newly loaded documents; prompt for reload when the current page already has a guard. Default notifications: off.
+Popup: product name, protection toggle, blocked count, current-site allow toggle, and block-notice toggle. Changes apply to newly loaded documents; prompt for reload when the current page already has a guard. Notices are non-modal, brief, and user-disableable.
 
 ## P1: After MVP
 
@@ -61,11 +61,11 @@ Firefox; Safari; settings sync; community rules; advanced policies; statistics.
 1. A `window.open()` from a real click does not navigate or create a tab/window.
 2. An automatic `window.open()` or one deferred with `setTimeout` after a click does not navigate or create a tab/window.
 3. A synthetic click on a `target="_blank"` link creates no tab/window.
-4. An ordinary left-click on a `target="_blank"` link, including an overlay, does not navigate or create a tab/window.
-5. Ctrl/Cmd-click and middle-click still open a new tab; context-menu Open Link in New Tab still works.
+4. An ordinary left-click on a new-context link, form, form control, or overlay does not navigate or create a tab/window.
+5. Ctrl/Cmd-click, middle-click, and right-click Open Link in New Tab/Window still work.
 6. Browser New Tab and Ctrl/Cmd+T are unaffected.
 7. After reload, an allowed hostname or global protection off leaves site navigation unchanged.
-8. Each blocked attempt increments the current page's count; no toast or system notification appears by default.
+8. Each blocked attempt increments the current page's count. When enabled, a brief non-modal notice explains the Ctrl/Cmd-click and middle-click escape hatch; it never clicks through or requests confirmation.
 9. The same package passes these scenarios in Chrome, Brave, and Edge.
 10. With protection on, unrelated ads and page content remain untouched; no network-request or cosmetic filtering occurs.
 
@@ -76,7 +76,7 @@ Manifest V3; local-only operation; minimum permissions needed for enforcement, l
 ## Open decisions and validation gates
 
 - **Controls:** The draft settings list includes Compatibility Mode, Allow Once, and several switches, but the priority list puts the first two in P1. Confirm if either must move into P0.
-- **Browser validation:** Early script interception, nested synthetic events, same-origin/cross-origin and sandboxed iframe coverage, pop-unders, and preservation of browser gestures are targets, not proven guarantees. Add Chromium browser tests before marking each supported; document cases extension APIs cannot distinguish or intercept.
+- **Browser validation:** Strict cleanup closes targets with a confirmed opener after Chromium creates them; opener-less targets remain untouched to protect browser New Tab actions. A brief flash remains possible. Ctrl/Cmd-click and middle-click use a short-lived source-frame gesture exemption. A right-clicked link's exact URL has a 30-second exemption; Chromium does not expose native context-menu selection, so a site opening that same URL during the interval cannot be distinguished. Add Chromium browser tests before marking each supported.
 - **Limitation:** This policy does not prevent malicious `target="_self"` navigation or every possible same-tab redirect. Treat same-tab navigation control as a separate feature.
 - **Operational behavior:** Confirm desired behavior when protection cannot be injected (fail open with disclosure vs some other approach).
 - **Performance validation:** Benchmark idle memory, CPU wakeups, and click latency with 1, 20, and 100 tabs in each target browser; record extension-on versus extension-off results before release. Set numeric budgets from these measurements rather than claiming zero overhead or an unmeasured RAM target.

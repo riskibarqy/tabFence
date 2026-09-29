@@ -1,16 +1,17 @@
 (() => {
   "use strict";
 
-  function isBlankAnchor(anchor) {
-    return Boolean(anchor && anchor.target.toLowerCase() === "_blank" && anchor.href);
+  function isNewContextTarget(target) {
+    const name = String(target || "").trim().toLowerCase();
+    return Boolean(name && !["_self", "_top", "_parent"].includes(name));
   }
 
-  function shouldBlockBlankAnchor(event, anchor) {
-    if (!event || !isBlankAnchor(anchor)) return false;
-    if (!event.isTrusted) return true;
+  function shouldBlockNewContext(event, target) {
+    if (!isNewContextTarget(target)) return false;
+    if (!event?.isTrusted) return true;
 
     return Boolean(
-      event.button === 0 &&
+      (event.button === 0 || event.type === "touchstart") &&
         !event.defaultPrevented &&
         !event.ctrlKey &&
         !event.metaKey &&
@@ -19,5 +20,5 @@
     );
   }
 
-  globalThis.TabFencePolicy = { isBlankAnchor, shouldBlockBlankAnchor };
+  globalThis.TabFencePolicy = { isNewContextTarget, shouldBlockNewContext };
 })();

@@ -10,7 +10,7 @@
 - **Script-selected destination:** A URL chosen by page JavaScript, including one passed to `window.open()` during a real click.
 - **Ordinary left-click:** A trusted primary-button click without Ctrl/Cmd, Shift, or Alt. It is not an explicit new-tab gesture.
 - **Direct link:** An `<a href>` selected by a real user click; a synthetic `.click()` or dispatched event does not qualify.
-- **Explicit user opening:** A browser UI command, context-menu action, or trusted modified/middle-click on a link.
+- **Explicit user opening:** A browser New Tab command, trusted Ctrl/Cmd-click or middle-click, or native context-menu Open Link in New Tab/Window.
 - **Allowed site:** The current page's exact hostname is on the local allowlist.
 - **Blocked attempt:** A page-initiated opening prevented before a new tab/window is created.
 - **Current page:** The top-level tab document; intercepted iframe attempts, where supported, contribute to that tab's visible count.
@@ -21,16 +21,17 @@
 |---|---|---|---|
 | NAV-01 | P0 | On eligible top-level pages where interception is active, block page-script `window.open()` calls, including synchronous calls in real click handlers and delayed calls. Never redirect their URLs into the current tab. | Call without input, during a real click, and from a timer; current URL and tab/window count stay unchanged. Validate early interception in Chromium before claiming full coverage. |
 | NAV-02 | P0 | A synthetic `.click()` or dispatched event must not authorize a new tab/window or a same-tab redirect, including through a `window.open()` handler. | Trigger both without trusted input; current URL and tab/window count stay unchanged. Nested synthetic events require browser validation before claiming coverage. |
-| NAV-03 | P0 | Block an ordinary left-click on a `target="_blank"` link or its ancestor; do not redirect its URL into the current tab or synthesize a click-through. | Click a direct blank link and a blank-link overlay; current URL and tab/window count stay unchanged; blocked count increments. |
+| NAV-03 | P0 | Block an ordinary left-click on a link, form, or form control targeting a new/named browsing context; do not redirect its URL into the current tab or synthesize a click-through. | Click direct and overlay links, then submit forms with `_blank` and named targets; current URL and tab/window count stay unchanged; blocked count increments. |
 | NAV-04 | P0 | Preserve trusted Ctrl/Cmd-click and middle-click link navigation as browser-managed new tabs. | Test both gestures on blank and ordinary links. |
-| NAV-05 | P0 | Do not interfere with browser New Tab button, Ctrl/Cmd+T, or context-menu Open Link in New Tab. | Exercise commands with protection on; requested tab opens. |
-| NAV-06 | Validation target | Prevent popup/pop-under windows through verified guarded mechanisms; do not first create a visible tab and then close it. | Observe window/tab creation in Chromium, not just final count; record uncovered mechanisms. |
-| NAV-07 | Validation target | Apply protection in eligible child frames where verified feasible; do not claim untested same-origin, cross-origin, nested, or sandboxed frame coverage. | Browser-test each frame type; record unsupported cases before marking supported. |
+| NAV-05 | P0 | Preserve browser New Tab button, Ctrl/Cmd+T, and right-click Open Link in New Tab/Window. Match the context-menu target to the right-clicked link's URL; expire the exemption after 30 seconds. | Exercise each command; ensure unrelated or stale popup URLs still close. |
+| NAV-06 | P0 | Close HTTP(S) navigation targets with a confirmed source-tab opener, or popup windows with an opener, unless they follow a trusted Ctrl/Cmd-click or middle-click. Leave browser-created ordinary tabs untouched. | Trigger hostile targets and popup windows, then browser New Tab button and Ctrl/Cmd+T; only confirmed site targets close. |
+| NAV-07 | Validation target | Apply protection in eligible child frames, including initiator-related opaque frames; do not claim untested same-origin, cross-origin, nested, or sandboxed frame coverage. | Browser-test each frame type, including sandboxed `about:blank`; record unsupported cases before marking supported. |
 | SITE-01 | P0 | Global protection defaults on; after reload, disabled protection does not change site navigation. | Toggle off, reload, then repeat guarded cases. |
 | SITE-02 | P0 | Users can add/remove the current site's exact hostname; after reload, allowed hosts bypass navigation changes in that site's top-level tab. | Allow host, reload, repeat guarded cases; remove, reload, confirm protection returns. |
 | SITE-03 | P0 | Hostname matching is exact; a rule for `example.com` does not implicitly allow `sub.example.com`. | Test parent/subdomain separately. |
 | UI-01 | P0 | Popup shows protection state, current site's allowance, and current page's blocked-attempt count; controls reflect saved state. | Open, change, reopen popup. |
-| UI-02 | P0 | Badge shows current page's blocked-attempt count, if nonzero; a new page starts at zero. Do not show system notifications or toasts by default. | Block twice, navigate, inspect badge and popup. |
+| UI-02 | P0 | Badge shows current page's blocked-attempt count, if nonzero; a new page starts at zero. | Block twice, navigate, inspect badge and popup. |
+| UI-03 | P1 | User can toggle a brief, non-modal block notice. The notice explains Ctrl/Cmd-click and middle-click, never clicks through, requests confirmation, or uses a system notification. | Toggle on and off; block an attempt; verify only the enabled case shows the notice. |
 | DATA-01 | P0 | Persist protection state and allowed hostnames locally; do not transmit settings, page content, or browsing activity. | Restart browser; inspect storage and network behavior. |
 
 No page may forge a direct link click via `dispatchEvent()` or `.click()`. A real click never authorizes navigation to a URL chosen by `window.open()`, regardless of timing. Legitimate popup-dependent sites must use the allowlist or protection toggle.
@@ -69,10 +70,10 @@ When the active tab is a restricted origin or has no usable hostname, disable th
 2. No gesture or delayed script calls `window.open()`: current URL and tab/window count stay unchanged; blocked count increments once per attempt.
 3. Real click handler schedules `setTimeout(() => window.open(url), 3000)`: no navigation or new tab/window; blocked count increments.
 4. Synthetic `.click()` and `dispatchEvent()` targeting a blank link or invoking a `window.open()` handler: no new tab/window or same-tab redirect.
-5. Ordinary left-click on a blank link and a blank-link overlay: no navigation or new tab/window; blocked count increments; no click-through is synthesized.
+5. Ordinary left-click on blank/named-target links and submissions from blank/named-target forms: no navigation or new tab/window; blocked count increments; no click-through is synthesized.
 6. Ctrl/Cmd-click and middle-click on regular and blank links: one new tab; no blocked count increment.
-7. Context menu, browser plus button, Ctrl/Cmd+T: requested tab opens; no blocked count increment.
-8. Browser validation targets: early page-script opening, nested synthetic events, same-origin, cross-origin, nested and sandboxed iframe openings, and pop-unders; record tested coverage and limitations before promising support.
+7. Browser plus button, Ctrl/Cmd+T, and right-click Open Link in New Tab/Window: requested tab/window opens; no blocked count increment.
+8. Confirmed website-created navigation target: destination closes; source count increments. A brief Chromium-visible flash is possible. Targets without a confirmed opener remain untouched. Browser-test early page-script opening, nested synthetic events, same-origin, cross-origin, nested and sandboxed iframe openings, and pop-unders.
 9. After reload, allowlisted hostname and protection off: site behavior unchanged; no blocked count increment for bypassed attempts.
 10. Navigate/reload, reopen popup, restart browser: page count resets on navigation; durable settings remain.
 11. Restricted browser page: controls clearly indicate no site protection; no misleading badge.
@@ -81,5 +82,5 @@ When the active tab is a restricted origin or has no usable hostname, disable th
 ## Out of scope / pending
 
 - Allow Once, Compatibility Mode, temporary permissions, optional toasts, popup history, import/export, Firefox, Safari, settings sync, and wildcard/domain-suffix allow rules.
-- Exact coverage of early scripts, nested synthetic events, `about:blank`/sandboxed/cross-origin frames, named-window reuse, `target` on forms, programmatic navigations, and alternate tab-creation APIs requires Chromium browser tests. Record limitations instead of silently promising universal interception.
+- Strict cleanup happens after Chromium creates a target, so a brief flash is possible. Chromium does not expose native context-menu selection; a site opening the exact right-clicked link URL within 30 seconds cannot be distinguished from the browser menu action. Exact coverage of early scripts, nested synthetic events, `about:blank`/sandboxed/cross-origin frames, named-window reuse, `target` on forms, programmatic navigations, and alternate tab-creation APIs requires Chromium browser tests.
 - Malicious `target="_self"` navigation and other same-tab redirects are out of scope; they require a separate navigation-control feature.
