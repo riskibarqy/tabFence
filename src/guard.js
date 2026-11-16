@@ -36,12 +36,18 @@
     return "";
   }
 
+  let pointerBlockReported = false;
+
   function blockPointerNavigation(event) {
+    if (event.type === "pointerdown") pointerBlockReported = false;
     if (!shouldBlockNewContext(event, clickTarget(event))) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    blockAttempt(`new-context ${event.type}`);
+    // Pointer, compatibility mouse/touch, and click events belong to one gesture.
+    const pointerGesture = event.isTrusted && (event.type !== "click" || event.detail > 0);
+    if (!pointerGesture || !pointerBlockReported) blockAttempt(`new-context ${event.type}`);
+    if (pointerGesture) pointerBlockReported = event.type !== "click";
   }
 
   // Stop page pointer handlers before they can create a browsing context.
@@ -94,4 +100,9 @@
   } catch (error) {
     console.warn(DEBUG, "prototype guard unavailable", error);
   }
+
+  // Report this document's guard, not the settings for its next navigation.
+  window.addEventListener("tabfence:status-request", () => {
+    window.dispatchEvent(new Event("tabfence:guard-active"));
+  });
 })();

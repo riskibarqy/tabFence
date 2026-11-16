@@ -30,7 +30,7 @@
 | SITE-02 | P0 | Users can add/remove the current site's exact hostname; after reload, allowed hosts bypass navigation changes in that site's top-level tab. | Allow host, reload, repeat guarded cases; remove, reload, confirm protection returns. |
 | SITE-03 | P0 | Hostname matching is exact; a rule for `example.com` does not implicitly allow `sub.example.com`. | Test parent/subdomain separately. |
 | UI-01 | P0 | Popup shows protection state, current site's allowance, and current page's blocked-attempt count; controls reflect saved state. | Open, change, reopen popup. |
-| UI-02 | P0 | Badge shows current page's blocked-attempt count, if nonzero; a new page starts at zero. | Block twice, navigate, inspect badge and popup. |
+| UI-02 | P0 | Badge shows current page's blocked-attempt count, if nonzero; a new page starts at zero. A pointer/mouse/touch/click event chain counts once, while distinct script opening requests count separately. Badge increments and navigation resets use the same per-tab queue. | Click once and inspect the count; block twice, then navigate while a badge read is pending and confirm the new page starts at zero. |
 | UI-03 | P1 | User can toggle a brief, non-modal block notice. The notice explains Ctrl/Cmd-click and middle-click, never clicks through, requests confirmation, or uses a system notification. | Toggle on and off; block an attempt; verify only the enabled case shows the notice. |
 | DATA-01 | P0 | Persist protection state and allowed hostnames locally; do not transmit settings, page content, or browsing activity. | Restart browser; inspect storage and network behavior. |
 
@@ -38,11 +38,15 @@ No page may forge a direct link click via `dispatchEvent()` or `.click()`. A rea
 
 ## UI and configuration
 
-The popup exposes global protection, the current site's allowance, and the current page's count. A small settings view may manage hostnames if popup space is insufficient. No rule editor or per-site policy engine is required for P0. Compatibility Mode and Allow Once are P1, not required to satisfy the MVP.
+The popup prioritizes the current hostname and page protection status, followed by the current site's allowance ("Pause on this site") and attempts blocked since the last page load. Global protection remains in the header; block notice preferences are secondary. Ordinary clicks that create a new tab/window are blocked; the popup and block notice explain intentional new-tab gestures and how to pause protection for a site. Block notices can be dismissed and otherwise expire after 10 seconds. No rule editor or per-site policy engine is required for P0. Compatibility Mode and Allow Once remain P1.
 
-When the active tab is a restricted origin or has no usable hostname, disable the site allowance control and indicate that protection is unavailable there. Do not claim those pages are guarded.
+Page status is checked against the guard actually installed in the current document, not inferred from saved settings. Changes that do not match the current document show "Reload required" with an explicit "Reload to apply" button. Reload waits for content-script registration to complete and does not proceed if registration fails or the tab URL has changed. Never reload automatically. An unconfirmed page status also offers reload and points users to browser site-access settings if it persists.
+
+When the active tab is a restricted origin, extension store, or has no usable hostname, disable the site allowance control and indicate that protection is unavailable there. Do not claim those pages are guarded. Controls remain disabled until initialization succeeds and while saving. A failed save restores the last confirmed controls; changing a preference preserves unrelated settings from storage. Dynamic status and save feedback use polite live regions, and controls have visible keyboard focus.
 
 ## Architecture constraints
+
+Notification-only preference changes do not alter guard registration. Protection and hostname changes update an existing content-script registration in place; a failed update preserves the previous registration. Disabling protection unregisters the guard, and enabling it registers a missing guard. Reload synchronization reports registration failures instead of reloading without a confirmed registration change.
 
 - Target interception before page scripts and in eligible frames. Verify page-world access, content-script isolation, frame restrictions, and event timing with Chromium browser tests before claiming coverage.
 - Keep enforcement on-device. Use extension-local storage for durable settings; avoid persisting full URLs or navigation history for the badge.

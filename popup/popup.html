@@ -7,23 +7,44 @@
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
-    <main>
-      <p class="eyebrow">NAVIGATION CONTROL</p>
-      <h1>TabFence</h1>
-      <p id="count" class="count">0 blocked here</p>
-      <label class="row">
-        <span>Protection</span>
-        <input id="enabled" type="checkbox" checked>
-      </label>
-      <label class="row">
-        <span id="site-label">Allow this site</span>
-        <input id="site" type="checkbox">
-      </label>
-      <label class="row">
-        <span>Show block notice</span>
-        <input id="show-notice" type="checkbox" checked>
-      </label>
-      <p id="notice" class="notice" hidden></p>
+    <main aria-labelledby="title">
+      <header class="header">
+        <div>
+          <p class="eyebrow">YOUR TABS, YOUR CALL</p>
+          <h1 id="title">TabFence</h1>
+        </div>
+        <label class="global-control">
+          <span>Protection</span>
+          <input id="enabled" type="checkbox" role="switch" disabled>
+        </label>
+      </header>
+
+      <section class="site-card" aria-labelledby="site-host">
+        <h2 id="site-host" class="site-host">Checking this tab...</h2>
+        <p id="status" class="status" role="status" aria-live="polite">Loading protection status...</p>
+        <p id="status-detail" class="detail">Reading your settings.</p>
+        <button id="reload" type="button" hidden disabled>Reload to apply</button>
+        <p id="count" class="count" hidden></p>
+        <label class="row site-control">
+          <span>Pause on this site</span>
+          <input id="site" type="checkbox" role="switch" aria-describedby="site-help" disabled>
+        </label>
+        <p id="site-help" class="detail">Pausing lets this site open tabs and windows.</p>
+      </section>
+
+      <aside class="link-help" aria-labelledby="link-help-title">
+        <h2 id="link-help-title">Opening a link on purpose?</h2>
+        <p>Use Ctrl/Cmd-click, middle-click, or the link menu to open a new tab. Ordinary clicks that open new tabs or windows are blocked.</p>
+      </aside>
+
+      <details class="preferences">
+        <summary>Preferences</summary>
+        <label class="row">
+          <span>Show block notices</span>
+          <input id="show-notice" type="checkbox" role="switch" disabled>
+        </label>
+      </details>
+      <p id="notice" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
     </main>
     <script src="popup.js"></script>
   </body>

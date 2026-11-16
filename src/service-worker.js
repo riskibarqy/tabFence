@@ -14,12 +14,12 @@ async function setBadge(tabId, count) {
   await chrome.action.setBadgeText({ tabId, text: count ? String(count) : "" });
 }
 
-function incrementBadge(tabId) {
+function updateBadge(tabId, count) {
   const previous = badgeQueues.get(tabId) || Promise.resolve();
   const next = previous
     .then(async () => {
-      const text = await chrome.action.getBadgeText({ tabId });
-      await setBadge(tabId, (Number.parseInt(text, 10) || 0) + 1);
+      const nextCount = count ?? ((Number.parseInt(await chrome.action.getBadgeText({ tabId }), 10) || 0) + 1);
+      await setBadge(tabId, nextCount);
     })
     .catch(() => {});
   badgeQueues.set(tabId, next);
@@ -35,13 +35,14 @@ async function loadSettings() {
 async function syncGuardRegistration() {
   const settings = await loadSettings();
 
-  await chrome.scripting.unregisterContentScripts({ ids: [GUARD_ID] }).catch(() => {});
+  const [registered] = await chrome.scripting.getRegisteredContentScripts({ ids: [GUARD_ID] });
   if (!settings.enabled) {
+    if (registered) await chrome.scripting.unregisterContentScripts({ ids: [GUARD_ID] });
     console.log("[TabFence debug-202603]", "guard disabled");
     return;
   }
 
-  await chrome.scripting.registerContentScripts([
+  const scripts = [
     {
       id: GUARD_ID,
       matches: ["http://*/*", "https://*/*"],
@@ -53,7 +54,10 @@ async function syncGuardRegistration() {
       world: "MAIN",
       persistAcrossSessions: true
     }
-  ]);
+  ];
+  // Updating in place preserves the previous guard if the browser rejects a change.
+  if (registered) await chrome.scripting.updateContentScripts(scripts);
+  else await chrome.scripting.registerContentScripts(scripts);
   console.log("[TabFence debug-202603]", "guard registered", settings.allowedHosts.length);
 }
 
@@ -66,8 +70,11 @@ chrome.runtime.onInstalled.addListener(() => scheduleGuardSync().catch(() => {})
 chrome.runtime.onStartup.addListener(() => scheduleGuardSync().catch(() => {}));
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[SETTINGS_KEY]) return;
-  settingsCache = { enabled: true, allowedHosts: [], showNotifications: true, ...(changes[SETTINGS_KEY].newValue || {}) };
-  scheduleGuardSync().catch(() => {});
+  const { oldValue = {}, newValue = {} } = changes[SETTINGS_KEY];
+  settingsCache = { enabled: true, allowedHosts: [], showNotifications: true, ...newValue };
+  if ((oldValue.enabled ?? true) === settingsCache.enabled &&
+      JSON.stringify(oldValue.allowedHosts || []) === JSON.stringify(settingsCache.allowedHosts)) return;
+  scheduleGuardSync().catch((error) => console.warn(DEBUG, "guard sync failed", error));
 });
 
 async function showBlockedNotice(tabId) {
@@ -134,12 +141,20 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
   if (message.type === "blocked" && sender.tab?.id) {
     console.log(DEBUG, "badge increment", sender.tab.id);
-    incrementBadge(sender.tab.id);
+    updateBadge(sender.tab.id);
     showBlockedNotice(sender.tab.id).catch(() => {});
   }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "sync-protection") {
+    settingsCache = undefined;
+    scheduleGuardSync().then(
+      () => sendResponse({ ok: true }),
+      () => sendResponse({ ok: false })
+    );
+    return true;
+  }
   if (message.type !== "get-count" || !Number.isInteger(message.tabId)) return;
   chrome.action
     .getBadgeText({ tabId: message.tabId })
@@ -148,7 +163,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === "loading") setBadge(tabId, 0);
+  if (changeInfo.status === "loading") updateBadge(tabId, 0);
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -185,7 +200,7 @@ async function closeWebsiteCreatedTarget(targetTabId, sourceTabId, explicitGestu
   if (!(await sourceIsProtected(sourceTabId))) return;
 
   console.log(DEBUG, "closed website-created target", targetTabId);
-  incrementBadge(sourceTabId);
+  updateBadge(sourceTabId);
   showBlockedNotice(sourceTabId).catch(() => {});
   chrome.tabs.remove(targetTabId).catch(() => {});
 }
