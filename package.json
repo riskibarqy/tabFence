@@ -1,7 +1,7 @@
 {
   "name": "tabfence",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.4",
   "type": "module",
   "scripts": {
     "test": "node tests/policy.test.mjs && node tests/registration.test.mjs && node tests/notice.test.mjs && node tests/navigation.test.mjs && node tests/popup.test.mjs",
